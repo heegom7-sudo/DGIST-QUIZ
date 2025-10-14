@@ -407,17 +407,18 @@
   const phoneMask = quiz.phone4?.replace(/^(\d{2})(\d{2})$/,'**$2');
 
   const payload = {
-    name: quiz.name,
-    birthMask,
-    phoneMask,
-    // 참고용 키(개인정보 원문은 저장하지 않음)
-    keyHashLocal: quiz.keyHash,           // 기존 로컬 키
-    keyHashRemote: quiz.keyHashRemote,    // Firestore 문서 ID로 쓸 해시
-    score,
-    total: quiz.picks.length,
-    when: nowStr(),
-    detail: quiz.picks.map(q=>({id:q.id,correct:q.answer,selected:quiz.answers[q.id]??null}))
-  };
+  name: quiz.name,
+  birthMask,
+  phoneMask,
+  // ✅ 관리자/CSV 호환을 위해 유지
+  keyHash: quiz.keyHash,                // 기존 로컬 키(관리자·CSV가 이 필드를 씀)
+  keyHashLocal: quiz.keyHash,           // (보존)
+  keyHashRemote: quiz.keyHashRemote,    // Firestore 문서 ID로 사용
+  score,
+  total: quiz.picks.length,
+  when: nowStr(),
+  detail: quiz.picks.map(q=>({id:q.id,correct:q.answer,selected:quiz.answers[q.id]??null}))
+};
 
   // 1) Firestore에 먼저 저장 (중복이면 서버가 거절)
   let remoteOK = false;
