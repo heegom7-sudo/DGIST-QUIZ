@@ -2,20 +2,18 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>DGIST 퀴즈 이벤트 · Firebase 버전</title>
-<meta name="theme-color" content="#0b1020">
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DGIST 퀴즈 이벤트</title>
 <style>
   :root{
     --bg:#0b1020; --card:#141a32; --acc:#5cc8ff; --acc2:#9ef0a9; --text:#e8ecff; --muted:#9aa4d4;
     --warn:#ff7b7b;
   }
   *{box-sizing:border-box}
-  html,body{height:100%}
   body{margin:0;background:linear-gradient(180deg,#0b1020,#0c1535 60%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,Helvetica,Arial,sans-serif}
   .wrap{max-width:940px;margin:0 auto;padding:20px}
   .card{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,.35);padding:20px}
-  h1{margin:0 0 10px;font-size:26px}
+  h1{margin:0 0 10px;font-size:28px}
   h2{margin:8px 0 16px;font-size:20px;color:var(--acc)}
   p{color:var(--muted);line-height:1.6}
   .row{display:flex;gap:16px;flex-wrap:wrap}
@@ -48,9 +46,6 @@
   .list .rowi:nth-child(odd){background:#0f1736}
   .pill{padding:3px 10px;border-radius:999px;background:#10204a;border:1px solid rgba(255,255,255,.12)}
   .center{text-align:center}
-  .right{text-align:right}
-  .avatar{width:28px;height:28px;border-radius:999px;background:#1f2a55;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
-  .stack{display:flex;align-items:center;gap:8px}
 </style>
 </head>
 <body>
@@ -59,14 +54,11 @@
     <div class="left">
       <div class="logo"></div>
       <div>
-        <div style="font-weight:800">DGIST 퀴즈 이벤트 (Firebase)</div>
-        <div class="small">이름+생년월일+전화 뒷자리로 중복 차단 (글로벌)</div>
+        <div style="font-weight:800">DGIST 퀴즈 이벤트</div>
+        <div class="small">이름+생년월일+전화 뒷자리로 중복 차단</div>
       </div>
     </div>
-    <div class="stack">
-      <div id="userBox" class="small"></div>
-      <button id="btnLogin" class="btn ghost">Google 로그인</button>
-      <button id="btnLogout" class="btn ghost hidden">로그아웃</button>
+    <div>
       <button id="btnAdmin" class="btn ghost">관리자</button>
     </div>
   </div>
@@ -74,7 +66,7 @@
   <!-- 홈/참여 -->
   <section id="page-home" class="card">
     <h1>환영합니다 👋</h1>
-    <p>아래 정보를 입력 후 시작하세요. 동일 조합(이름+생년월일+전화 뒷자리)은 <b>재참여 불가</b>합니다. 데이터는 Firestore에 저장되어 여러 기기에서 <b>동일하게</b> 조회됩니다.</p>
+    <p>아래 정보를 입력 후 시작하세요. 동일 조합(이름+생년월일+전화 뒷자리)은 <b>재참여 불가</b>합니다.</p>
     <div class="row">
       <div class="col">
         <label class="small">이름</label>
@@ -103,7 +95,7 @@
         </div>
         <div class="col">
           <div class="badge">안내</div>
-          <p style="margin-top:8px">개인정보는 <b>SHA-1 해시</b>로 키화되어 저장되며, 관리자 CSV에서는 마스킹되어 출력됩니다.</p>
+          <p style="margin-top:8px">개인정보는 해시 처리되어 저장되며, 관리자 CSV에서는 마스킹되어 출력됩니다.</p>
         </div>
       </div>
     </div>
@@ -118,7 +110,7 @@
       <div class="col">
         <button id="btnPrev" class="btn ghost">이전</button>
       </div>
-      <div class="col right">
+      <div class="col" style="text-align:right">
         <button id="btnNext" class="btn">다음</button>
       </div>
     </div>
@@ -134,10 +126,10 @@
     </div>
   </section>
 
-  <!-- 관리자 로그인 (PIN) -->
+  <!-- 관리자 로그인 -->
   <section id="page-admin-login" class="card hidden">
     <h2>관리자 페이지</h2>
-    <p class="small">PIN을 입력하세요. 기본 PIN은 <b>0000</b> 입니다. (관리자에서 변경 가능) · 관리자 페이지는 <b>Google 로그인</b>이 필요합니다.</p>
+    <p class="small">PIN을 입력하세요. </p>
     <div class="row">
       <div class="col">
         <label class="small">관리자 PIN</label>
@@ -157,6 +149,7 @@
         <h2>대시보드</h2>
         <div class="list">
           <div class="rowi"><div style="width:180px">총 참여 수</div><div id="statTotal"></div></div>
+          <div class="rowi"><div style="width:180px">유니크(3요소) 수</div><div id="statUnique"></div></div>
           <div class="rowi"><div style="width:180px">평균 점수</div><div id="statAvg"></div></div>
           <div class="rowi"><div style="width:180px">목표(하한/상한)</div>
             <div><span id="low" class="pill"></span> ~ <span id="high" class="pill"></span></div></div>
@@ -213,7 +206,7 @@
         <button id="btnBankSave" class="btn">문제은행 저장</button>
         <button id="btnBankExport" class="btn ghost">JSON 내보내기</button>
       </div>
-      <div class="col right">
+      <div class="col" style="text-align:right">
         <button id="btnBankTemplate" class="btn ghost">샘플 10문제 로드</button>
       </div>
     </div>
@@ -221,53 +214,20 @@
     <h2 style="margin-top:20px">최근 제출</h2>
     <div id="submits" class="list"></div>
 
-    <div class="footer">© DGIST Quiz · Firebase Firestore 저장 · Google 로그인</div>
+    <div class="footer">© DGIST Quiz · 로컬 저장 방식 · 브라우저에서 바로 실행</div>
   </section>
 </div>
 
-<!-- Firebase SDKs (compat for no-bundle use) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore-compat.js"></script>
-
-<script>
-/**
- * 1) 아래 firebaseConfig 값만 본인 프로젝트 값으로 교체하세요.
- *    Firebase 콘솔 > 프로젝트 설정 > 웹앱 구성에서 복사
- */
-const firebaseConfig = {
-  apiKey: "AIzaSyBlcq6BX9U8HRilZ0GQmYUoyGjfyWtRA5c",
-  authDomain: "fix-2025--dgist-quiz.firebaseapp.com",
-  projectId: "fix-2025--dgist-quiz",
-  storageBucket: "fix-2025--dgist-quiz.appspot.com",
-  messagingSenderId: "898254210099",
-  appId: "1:898254210099:web:59abf5f674b44b1e878f46",
-  measurementId: "G-LFRDQD9XEN"
-};
-
-/**
- * 2) 선택: 테스트 모드 Firestore 규칙 (2주 이벤트용)
- *   - 콘솔 > Firestore > 규칙에서 다음으로 설정 추천 (이벤트 종료 전용)
- * rules_version = '2';
- * service cloud.firestore {
- *   match /databases/{database}/documents {
- *     match /{document=**} { allow read, write: if true; }
- *   }
- * }
- */
-</script>
-
 <script>
 (function(){
-  // --- Firebase Init
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-
-  // --- Collections & Docs
-  const COL_KEYS = 'keys';           // unique key hashes
-  const COL_SUBS = 'submissions';    // quiz submissions
-  const DOC_CFG  = db.collection('config').doc('config'); // count/low/high/pin
+  // --- Storage Keys
+  const K = {
+    bank: 'dgist_bank_v1',
+    pin: 'dgist_pin_v1',
+    cfg: 'dgist_cfg_v1',
+    subs: 'dgist_submissions_v2', // v2: includes birth/phone hash & mask
+    keys: 'dgist_keys_v1'         // hash map of composite keys
+  };
 
   // --- Default Data
   const defaultBank = [
@@ -282,10 +242,34 @@ const firebaseConfig = {
     {id:'q9',question:'다음 중 DGIST의 캠퍼스 문화로 알맞은 것은?',choices:['소규모 연구 중심 환경','대규모 상업시설 중심','관광지 중심','테마파크 중심'],answer:0},
     {id:'q10',question:'DGIST와 가장 관련이 높은 지역 권역은?',choices:['대구·경북','전라권','충청권','수도권만 해당'],answer:0},
   ];
-  const defaultCfg = {count:5, low:1000, high:1500, pinHash:''};
 
-  // --- DOM
+  const defaultCfg = {count:5, low:1000, high:1500};
+
+  // --- Utilities
   const $ = sel => document.querySelector(sel);
+  const load = (k, fallback) => {
+    try{ const v = JSON.parse(localStorage.getItem(k)); return v ?? fallback; }catch{ return fallback; }
+  };
+  const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+  const nowStr = ()=> new Date().toLocaleString();
+
+  const sha1 = async (str) => {
+    const buf = new TextEncoder().encode(str);
+    const hash = await crypto.subtle.digest('SHA-1', buf);
+    return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  };
+
+  // init storage
+  if(!load(K.bank)) save(K.bank, defaultBank);
+  if(!load(K.cfg))  save(K.cfg, defaultCfg);
+  if(!load(K.pin))  (async()=> save(K.pin, await sha1('0000')))();
+  if(!load(K.subs)) save(K.subs, []);    // [{name, birthMask, phoneMask, keyHash, score,...}]
+  if(!load(K.keys)) save(K.keys, {});    // {keyHash: timestamp}
+
+  // --- State
+  let quiz = {name:'', birth:'', phone4:'', keyHash:'', picks:[], answers:{}, idx:0};
+
+  // --- Elements
   const pages = {
     home: $('#page-home'),
     quiz: $('#page-quiz'),
@@ -301,126 +285,50 @@ const firebaseConfig = {
   const bar = $('#bar');
   const visitInfo = $('#visitInfo');
   const btnAdmin = $('#btnAdmin');
-  const btnLogin = $('#btnLogin');
-  const btnLogout = $('#btnLogout');
-  const userBox = $('#userBox');
 
-  // --- Quiz State
-  let quiz = {name:'', birth:'', phone4:'', keyHash:'', picks:[], answers:{}, idx:0};
-  let bankCache = null;
-  let cfgCache = null;
+  // --- Home view update
+  function updateProgress(){
+    const cfg = load(K.cfg, defaultCfg);
+    const subs = load(K.subs, []);
+    const total = subs.length;
+    const pct = Math.min(100, Math.round((total / cfg.high) * 100));
+    bar.style.width = pct + '%';
+    visitInfo.textContent = `${total} / ${cfg.high}`;
+  }
 
-  // --- Utils
-  const nowStr = ()=> new Date().toLocaleString();
-  const sha1 = async (str) => {
-    const buf = new TextEncoder().encode(str);
-    const hash = await crypto.subtle.digest('SHA-1', buf);
-    return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  };
-  async function ensureConfig(){
-    const snap = await DOC_CFG.get();
-    if(!snap.exists){
-      await DOC_CFG.set(defaultCfg);
-      return defaultCfg;
-    }
-    const cfg = snap.data();
-    return {...defaultCfg, ...cfg};
+  // duplicate guards
+  function keyExistsLocalMap(keyHash){
+    const keys = load(K.keys, {});
+    return !!keys[keyHash];
   }
-  async function getBank(){
-    // 문제은행은 config/bank 문서로 저장, 없으면 default 사용
-    const ref = db.collection('config').doc('bank');
-    const snap = await ref.get();
-    if(snap.exists && Array.isArray(snap.data().items)) return snap.data().items;
-    return defaultBank;
+  function keyExistsInSubmissions(keyHash){
+    const subs = load(K.subs, []);
+    return subs.some(s=>s.keyHash===keyHash);
   }
-  function shuffle(a){
-    const arr = a.slice();
-    for(let i=arr.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      [arr[i],arr[j]]=[arr[j],arr[i]];
-    }
-    return arr;
+  function markKeyUsed(keyHash){
+    const keys = load(K.keys, {});
+    keys[keyHash] = Date.now();
+    save(K.keys, keys);
   }
+
+  // --- Navigation helpers
   function show(id){
     Object.values(pages).forEach(el=>el.classList.add('hidden'));
     id.classList.remove('hidden');
   }
-  function maskBirth(b){
-    return b?.replace(/^(\d{4})(\d{2})(\d{2})$/, (_,y,m,d)=>`${y}**${d}`);
-  }
-  function maskPhone4(p){ return p?.replace(/^(\d{2})(\d{2})$/,'**$2'); }
 
-  // --- Auth
-  auth.onAuthStateChanged(user=>{
-    if(user){
-      const name = user.displayName || user.email;
-      userBox.innerHTML = `<span class="avatar">👤</span> ${name}`;
-      btnLogin.classList.add('hidden');
-      btnLogout.classList.remove('hidden');
-    }else{
-      userBox.textContent = '';
-      btnLogin.classList.remove('hidden');
-      btnLogout.classList.add('hidden');
-    }
-  });
-  btnLogin.onclick = async()=>{
-    try{
-      const provider = new firebase.auth.GoogleAuthProvider();
-      await auth.signInWithPopup(provider);
-      alert('로그인 되었습니다.');
-    }catch(e){ alert('로그인 실패: '+e.message); }
-  };
-  btnLogout.onclick = async()=>{
-    await auth.signOut();
-    alert('로그아웃 되었습니다.');
-  };
-
-  // --- Home progress
-  async function updateProgress(){
-    cfgCache = await ensureConfig();
-    visitInfo.textContent = `… / ${cfgCache.high}`;
-    // count submissions quickly (approx by query size, for small volume ok)
-    const snap = await db.collection(COL_SUBS).get();
-    const total = snap.size;
-    const pct = Math.min(100, Math.round((total / cfgCache.high) * 100));
-    bar.style.width = pct + '%';
-    visitInfo.textContent = `${total} / ${cfgCache.high}`;
-  }
-
-  // --- Start Quiz
-  btnStart.addEventListener('click', async ()=>{
-    const name = inpName.value.trim();
-    const birth = inpBirth.value.trim();
-    const phone4 = inpPhone4.value.trim();
-
-    if(!name){ dupMsg.textContent = '이름을 입력해주세요.'; return; }
-    if(!/^\d{8}$/.test(birth)){ dupMsg.textContent = '생년월일은 YYYYMMDD 8자리로 입력하세요.'; return; }
-    const y = parseInt(birth.slice(0,4),10);
-    const m = parseInt(birth.slice(4,6),10);
-    const d = parseInt(birth.slice(6,8),10);
-    if(y<1900 || y>2100 || m<1 || m>12 || d<1 || d>31){ dupMsg.textContent='생년월일 형식이 올바르지 않습니다.'; return; }
-    if(!/^\d{4}$/.test(phone4)){ dupMsg.textContent = '전화번호 뒷자리는 숫자 4자리로 입력하세요.'; return; }
-
-    const composite = `${name}|${birth}|${phone4}`;
-    const keyHash = await sha1(composite);
-
-    // 글로벌 중복 체크 (keys 컬렉션에 문서 id로 저장)
-    const keyRef = db.collection(COL_KEYS).doc(keyHash);
-    const keySnap = await keyRef.get();
-    if(keySnap.exists){
-      dupMsg.textContent = '이미 참여한 정보입니다. (이름+생년월일+전화 뒷자리 중복)';
-      return;
-    }
-
-    // 문제 로드
-    if(!bankCache) bankCache = await getBank();
-    if(!cfgCache) cfgCache = await ensureConfig();
-    const count = Math.min(cfgCache.count||5, bankCache.length);
-    quiz = {name, birth, phone4, keyHash, picks: shuffle(bankCache).slice(0,count), answers:{}, idx:0};
+  // --- Quiz rendering
+  function startQuiz(){
+    const bank = load(K.bank, defaultBank);
+    const cfg = load(K.cfg, defaultCfg);
+    const count = Math.min(cfg.count||5, bank.length);
+    const picks = shuffle(bank).slice(0, count);
+    quiz.picks = picks;
+    quiz.answers = {};
+    quiz.idx = 0;
     renderQ();
     show(pages.quiz);
-  });
-
+  }
   function renderQ(){
     const i = quiz.idx;
     const total = quiz.picks.length;
@@ -446,104 +354,90 @@ const firebaseConfig = {
   function prevQ(){
     if(quiz.idx>0){ quiz.idx--; renderQ(); }
   }
-  $('#btnNext').onclick = nextQ;
-  $('#btnPrev').onclick = prevQ;
-  $('#btnHome').onclick = ()=>{ show(pages.home); };
-
-  async function submitQuiz(){
+  function submitQuiz(){
+    const subs = load(K.subs, []);
     let score = 0;
-    quiz.picks.forEach(q=>{ if(quiz.answers[q.id]===q.answer) score++; });
-
-    // 저장 트랜잭션: keys/id 생성 -> submissions 추가
-    const birthMask = maskBirth(quiz.birth);
-    const phoneMask = maskPhone4(quiz.phone4);
-    const at = Date.now();
-
-    await db.runTransaction(async (tx)=>{
-      const keyRef = db.collection(COL_KEYS).doc(quiz.keyHash);
-      const keySnap = await tx.get(keyRef);
-      if(keySnap.exists) throw new Error('이미 참여 기록이 있습니다.');
-      tx.set(keyRef, {usedAt: at});
-      const subRef = db.collection(COL_SUBS).doc();
-      tx.set(subRef, {
-        name: quiz.name,
-        birthMask, phoneMask,
-        keyHash: quiz.keyHash,
-        score, total: quiz.picks.length,
-        at, when: nowStr(),
-        detail: quiz.picks.map(q=>({id:q.id,correct:q.answer,selected:quiz.answers[q.id] ?? null}))
-      });
+    quiz.picks.forEach(q=>{
+      if(quiz.answers[q.id]===q.answer) score++;
     });
-
+    // mask personal info
+    const birthMask = quiz.birth?.replace(/^(\d{4})(\d{2})(\d{2})$/, (_,y,m,d)=>`${y}**${d}`);
+    const phoneMask = quiz.phone4?.replace(/^(\d{2})(\d{2})$/,'**$2');
+    subs.push({
+      name: quiz.name,
+      birthMask, phoneMask,
+      keyHash: quiz.keyHash,
+      score,
+      total: quiz.picks.length,
+      at: Date.now(),
+      when: nowStr(),
+      detail: quiz.picks.map(q=>({id:q.id,correct:q.answer,selected:quiz.answers[q.id]??null}))
+    });
+    save(K.subs, subs);
+    // mark key used
+    markKeyUsed(quiz.keyHash);
     $('#scoreLine').textContent = `${quiz.name} 님의 점수: ${score} / ${quiz.picks.length}`;
-    await updateProgress();
+    updateProgress();
     show(pages.done);
   }
 
-  // --- Admin
-  btnAdmin.onclick = ()=>{
-    if(!auth.currentUser){
-      alert('관리자 페이지는 Google 로그인이 필요합니다.');
-      return;
+  function shuffle(a){
+    const arr = a.slice();
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
     }
+    return arr;
+  }
+
+  // --- Admin
+  function goAdmin(){
     show(pages.adminLogin);
     $('#pinMsg').textContent = '';
     $('#inpPin').value = '';
-  };
+  }
 
   async function adminEnter(){
-    if(!auth.currentUser){ $('#pinMsg').textContent = '먼저 Google 로그인 하세요.'; return; }
     const p = $('#inpPin').value.trim();
     const hash = await sha1(p);
-    cfgCache = await ensureConfig();
-    let pinHash = cfgCache.pinHash;
-    if(!pinHash){
-      // 최초 설정: 기본 0000을 해시해 저장
-      const defaultHash = await sha1('0000');
-      await DOC_CFG.set({pinHash: defaultHash}, {merge:true});
-      pinHash = defaultHash;
-    }
-    if(hash===pinHash){
+    if(hash===load(K.pin)){
       showAdminMain();
       window.location.hash = '#admin';
     }else{
       $('#pinMsg').textContent = 'PIN이 올바르지 않습니다.';
     }
   }
-  $('#btnPinGo').onclick = adminEnter;
 
-  async function showAdminMain(){
+  function showAdminMain(){
     show(pages.admin);
     // stats
-    const subsSnap = await db.collection(COL_SUBS).get();
-    const total = subsSnap.size;
-    const avg = total? (subsSnap.docs.map(d=>d.data().score).reduce((a,b)=>a+b,0)/total).toFixed(2) : '0.00';
+    const subs = load(K.subs, []);
+    const total = subs.length;
+    const uniq = new Set(subs.map(s=>s.keyHash)).size;
+    const avg = total? (subs.reduce((a,b)=>a+b.score,0)/total).toFixed(2):'0.00';
     $('#statTotal').textContent = total + ' 명';
+    $('#statUnique').textContent = uniq + ' 명';
     $('#statAvg').textContent = avg + ' 점';
-
-    cfgCache = await ensureConfig();
-    $('#low').textContent = cfgCache.low + '명';
-    $('#high').textContent = cfgCache.high + '명';
-    const pct = Math.min(100, Math.round((total / cfgCache.high) * 100));
+    // range
+    const cfg = load(K.cfg, defaultCfg);
+    $('#low').textContent = cfg.low + '명';
+    $('#high').textContent = cfg.high + '명';
+    const pct = Math.min(100, Math.round((total / cfg.high) * 100));
     $('#abar').style.width = pct + '%';
-    $('#inpLow').value = cfgCache.low;
-    $('#inpHigh').value = cfgCache.high;
-    $('#inpCount').value = cfgCache.count || 5;
-
+    $('#inpLow').value = cfg.low;
+    $('#inpHigh').value = cfg.high;
+    $('#inpCount').value = cfg.count || 5;
     // bank JSON
-    const bank = await getBank();
-    $('#taBank').value = JSON.stringify(bank, null, 2);
-
+    $('#taBank').value = JSON.stringify(load(K.bank, defaultBank), null, 2);
     // recent
     renderSubmits();
   }
 
-  async function renderSubmits(){
+  function renderSubmits(){
     const box = $('#submits');
-    const snap = await db.collection(COL_SUBS).orderBy('at','desc').limit(20).get();
-    box.innerHTML = snap.empty ? '<div class="rowi">제출 기록이 없습니다.</div>' : '';
-    snap.forEach(doc=>{
-      const s = doc.data();
+    const subs = load(K.subs, []).slice(-20).reverse();
+    box.innerHTML = subs.length? '' : '<div class="rowi">제출 기록이 없습니다.</div>';
+    subs.forEach(s=>{
       const row = document.createElement('div');
       row.className = 'rowi';
       row.innerHTML = `
@@ -552,115 +446,138 @@ const firebaseConfig = {
         <div style="width:120px">${s.birthMask ?? ''}</div>
         <div style="width:80px">${s.phoneMask ?? ''}</div>
         <div style="width:110px">${s.score} / ${s.total}</div>
-        <div class="small" style="color:var(--muted)">key:${(s.keyHash||'').slice(0,8)}…</div>
+        <div class="small" style="color:var(--muted)">key:${s.keyHash.slice(0,8)}…</div>
       `;
       box.appendChild(row);
     });
   }
 
-  // Range / Count Save
-  $('#btnRangeSave').onclick = async ()=>{
+  function download(filename, text){
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // --- Events
+  btnStart.addEventListener('click', async ()=>{
+    const name = inpName.value.trim();
+    const birth = inpBirth.value.trim();
+    const phone4 = inpPhone4.value.trim();
+
+    // validations
+    if(!name){ dupMsg.textContent = '이름을 입력해주세요.'; return; }
+    if(!/^\d{8}$/.test(birth)){ dupMsg.textContent = '생년월일은 YYYYMMDD 8자리로 입력하세요.'; return; }
+    // 간이 범위 체크(1900~2025)
+    const y = parseInt(birth.slice(0,4),10);
+    const m = parseInt(birth.slice(4,6),10);
+    const d = parseInt(birth.slice(6,8),10);
+    if(y<1900 || y>2100 || m<1 || m>12 || d<1 || d>31){ dupMsg.textContent='생년월일 형식이 올바르지 않습니다.'; return; }
+    if(!/^\d{4}$/.test(phone4)){ dupMsg.textContent = '전화번호 뒷자리는 숫자 4자리로 입력하세요.'; return; }
+
+    // composite key => hash
+    const composite = `${name}|${birth}|${phone4}`;
+    const keyHash = await sha1(composite);
+
+    // check duplicates (map + submissions)
+    if(keyExistsLocalMap(keyHash) || keyExistsInSubmissions(keyHash)){
+      dupMsg.textContent = '이미 참여한 정보입니다. (이름+생년월일+전화 뒷자리 중복)';
+      return;
+    }
+
+    dupMsg.textContent = '';
+    quiz.name = name; quiz.birth = birth; quiz.phone4 = phone4; quiz.keyHash = keyHash;
+    startQuiz();
+  });
+
+  $('#btnNext').onclick = nextQ;
+  $('#btnPrev').onclick = prevQ;
+  $('#btnHome').onclick = ()=>{ show(pages.home); };
+  btnAdmin.onclick = ()=> { goAdmin(); };
+
+  $('#btnPinGo').onclick = adminEnter;
+
+  $('#btnRangeSave').onclick = ()=>{
+    const cfg = load(K.cfg, defaultCfg);
     const low = parseInt($('#inpLow').value||'0',10);
     const high = parseInt($('#inpHigh').value||'0',10);
     if(!(low>0 && high>=low)){ alert('하한/상한 값을 확인해주세요.'); return; }
-    await DOC_CFG.set({low, high}, {merge:true});
-    await showAdminMain();
+    cfg.low = low; cfg.high = high;
+    save(K.cfg, cfg);
+    showAdminMain();
     alert('저장되었습니다.');
   };
 
-  $('#btnCountSave').onclick = async ()=>{
+  $('#btnCountSave').onclick = ()=>{
+    const cfg = load(K.cfg, defaultCfg);
     let c = parseInt($('#inpCount').value||'5',10);
-    const bank = JSON.parse($('#taBank').value || '[]');
+    const bank = load(K.bank, defaultBank);
     if(c<1) c=1;
     if(c>bank.length) c=bank.length;
-    await DOC_CFG.set({count: c}, {merge:true});
+    cfg.count = c;
+    save(K.cfg, cfg);
     alert('출제 문항 수 저장 완료');
   };
 
   $('#btnPinSet').onclick = async ()=>{
     const np = $('#inpNewPin').value.trim();
     if(!np){ alert('새 PIN을 입력하세요.'); return; }
-    const hash = await sha1(np);
-    await DOC_CFG.set({pinHash: hash}, {merge:true});
+    save(K.pin, await sha1(np));
     $('#inpNewPin').value = '';
     alert('PIN이 변경되었습니다.');
   };
 
-  // Bank Save/Export/Template
-  $('#btnBankSave').onclick = async ()=>{
+  $('#btnCSV').onclick = ()=>{
+    const subs = load(K.subs, []);
+    const rows = [['when','name','birth_mask','phone_mask','key_hash','score','total']];
+    subs.forEach(s=>rows.push([s.when,s.name,s.birthMask||'',s.phoneMask||'',s.keyHash,s.score,s.total]));
+    const csv = rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+    download(`dgist_quiz_submissions_${new Date().toISOString().slice(0,10)}.csv`, csv);
+  };
+
+  $('#btnReset').onclick = ()=>{
+    if(confirm('정말 전체 데이터를 초기화할까요? 참가 기록과 중복키 목록이 모두 삭제됩니다.')){
+      save(K.subs, []);
+      save(K.keys, {});
+      updateProgress();
+      renderSubmits();
+      alert('초기화 완료');
+      showAdminMain();
+    }
+  };
+
+  $('#btnBankSave').onclick = ()=>{
     try{
       const parsed = JSON.parse($('#taBank').value);
       if(!Array.isArray(parsed)) throw 0;
       parsed.forEach(q=>{
         if(!q.id||!q.question||!Array.isArray(q.choices)||typeof q.answer!=='number') throw 0;
       });
-      await db.collection('config').doc('bank').set({items: parsed});
-      // count 보정
-      const cfgSnap = await DOC_CFG.get();
-      const cfg = cfgSnap.exists ? cfgSnap.data() : defaultCfg;
-      if((cfg.count||5) > parsed.length){
-        await DOC_CFG.set({count: parsed.length}, {merge:true});
-      }
+      save(K.bank, parsed);
+      const cfg = load(K.cfg, defaultCfg);
+      if(cfg.count>parsed.length){ cfg.count = parsed.length; save(K.cfg, cfg); }
       alert('문제은행 저장 완료');
     }catch(e){
       alert('JSON 형식이 올바르지 않습니다. id, question, choices[], answer(번호)를 확인하세요.');
     }
   };
 
-  $('#btnBankExport').onclick = async ()=>{
-    const bank = await getBank();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(bank,null,2)],{type:'application/json'}));
-    a.download = 'dgist_quiz_bank.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
+  $('#btnBankExport').onclick = ()=>{
+    const bank = load(K.bank, defaultBank);
+    download('dgist_quiz_bank.json', JSON.stringify(bank,null,2));
   };
 
   $('#btnBankTemplate').onclick = ()=>{
     $('#taBank').value = JSON.stringify(defaultBank, null, 2);
   };
 
-  // CSV Download
-  $('#btnCSV').onclick = async ()=>{
-    const snap = await db.collection(COL_SUBS).orderBy('at','asc').get();
-    const rows = [['when','name','birth_mask','phone_mask','key_hash','score','total']];
-    snap.forEach(d=>{
-      const s = d.data();
-      rows.push([s.when,s.name,s.birthMask||'',s.phoneMask||'',s.keyHash||'',s.score,s.total]);
-    });
-    const csv = rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-    a.download = `dgist_quiz_submissions_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+  // Direct hash access to admin
+  if(location.hash==='#admin'){ goAdmin(); }
 
-  // Reset (Delete All)
-  $('#btnReset').onclick = async ()=>{
-    if(!confirm('정말 전체 데이터를 초기화할까요? 참가 기록과 중복키가 모두 삭제됩니다.')) return;
-    // delete submissions
-    const subSnap = await db.collection(COL_SUBS).get();
-    const batchSize = subSnap.size;
-    for(const doc of subSnap.docs){
-      await db.collection(COL_SUBS).doc(doc.id).delete();
-    }
-    // delete keys
-    const keySnap = await db.collection(COL_KEYS).get();
-    for(const doc of keySnap.docs){
-      await db.collection(COL_KEYS).doc(doc.id).delete();
-    }
-    await updateProgress();
-    await renderSubmits();
-    alert('초기화 완료');
-    await showAdminMain();
-  };
-
-  // Direct hash for admin
-  if(location.hash==='#admin'){ btnAdmin.click(); }
-
-  // Init
+  // Init home
   updateProgress();
+
 })();
 </script>
 </body>
