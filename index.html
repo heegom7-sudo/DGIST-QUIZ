@@ -272,8 +272,8 @@
     bank: 'dgist_bank_v1',
     pin: 'dgist_pin_v1',
     cfg: 'dgist_cfg_v1',
-    subs: 'dgist_submissions_v2', // v2: includes birth/phone hash & mask
-    keys: 'dgist_keys_v1'         // hash map of composite keys
+    subs: 'dgist_submissions_v2',
+    keys: 'dgist_keys_v1'
   };
 
   // --- Default Data
@@ -306,12 +306,22 @@
     return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
   };
 
-  // init storage
+  // --- Init storage (PIN 폴백 포함)
   if(!load(K.bank)) save(K.bank, defaultBank);
   if(!load(K.cfg))  save(K.cfg, defaultCfg);
-  if(!load(K.pin))  (async()=> save(K.pin, await sha1('0000')))();
-  if(!load(K.subs)) save(K.subs, []);    // [{name, birthMask, phoneMask, keyHash, score,...}]
-  if(!load(K.keys)) save(K.keys, {});    // {keyHash: timestamp}
+  if(!load(K.pin)){
+    (async()=>{
+      try{
+        const h = await sha1('0000');
+        save(K.pin, h);                 // 정상 환경: 해시 저장
+      }catch(e){
+        console.warn('SHA-1 init failed, storing plain PIN', e);
+        save(K.pin, 'plain:0000');      // 제한 환경: 접두어로 평문 저장
+      }
+    })();
+  }
+  if(!load(K.subs)) save(K.subs, []);
+  if(!load(K.keys)) save(K.keys, {});
 
   // --- State
   let quiz = {name:'', birth:'', phone4:'', keyHash:'', keyHashRemote:'', picks:[], answers:{}, idx:0};
@@ -474,13 +484,46 @@
     $('#inpPin').value = '';
   }
 
+  // 관리자 로그인: 해시/평문 폴백 비교
   async function adminEnter(){
     const p = $('#inpPin').value.trim();
-    const hash = await sha1(p);
-    if(hash===load(K.pin)){
+    let stored = load(K.pin);
+
+    // 저장 PIN이 없으면 0000으로 재설정(환경에 맞춰)
+    if (!stored) {
+      try {
+        stored = await sha1('0000');
+        save(K.pin, stored);
+      } catch {
+        stored = 'plain:0000';
+        save(K.pin, stored);
+      }
+    }
+
+    // 1) 해시 비교 시도
+    let hashedOK = false;
+    try {
+      const inputHash = await sha1(p);
+      if (!String(stored).startsWith('plain:') && inputHash === stored) {
+        hashedOK = true;
+      }
+    } catch (e) {
+      console.warn('SHA-1 compare failed, will try plain compare', e);
+    }
+
+    // 2) 평문 비교 (stored가 plain이거나, 해시 비교 실패 시)
+    let plainOK = false;
+    if (!hashedOK) {
+      if (String(stored).startsWith('plain:')) {
+        const plain = stored.split(':', 2)[1] ?? '';
+        if (p === plain) plainOK = true;
+      }
+    }
+
+    if (hashedOK || plainOK) {
       showAdminMain();
       window.location.hash = '#admin';
-    }else{
+    } else {
       $('#pinMsg').textContent = 'PIN이 올바르지 않습니다.';
     }
   }
@@ -542,4 +585,160 @@
     try {
       dupMsg.textContent = '';
       const name = inpName.value.trim();
-      const birth = inpBirth.value.t
+      const birth = inpBirth.value.trim();
+      const phone4 = inpPhone4.value.trim();
+
+      // validations
+      if(!name){ dupMsg.textContent = '이름을 입력해주세요.'; return; }
+      if(!/^\d{8}$/.test(birth)){ dupMsg.textContent = '생년월일은 YYYYMMDD 8자리로 입력하세요.'; return; }
+      const nowY = new Date().getFullYear();
+      const y = parseInt(birth.slice(0,4),10);
+      const m = parseInt(birth.slice(4,6),10);
+      const d = parseInt(birth.slice(6,8),10);
+      if(y<1900 || y>nowY || m<1 || m>12 || d<1 || d>31){
+        dupMsg.textContent='생년월일 형식이 올바르지 않습니다.'; 
+        return; 
+      }
+      if(!/^\d{4}$/.test(phone4)){ 
+        dupMsg.textContent = '전화번호 뒷자리는 숫자 4자리로 입력하세요.'; 
+        return; 
+      }
+
+      // composite key
+      const composite = `${name}|${birth}|${phone4}`;
+      const keyHashLocal = await sha1(composite);
+
+      // 빠른 로컬 중복
+      if(keyExistsLocalMap(keyHashLocal) || keyExistsInSubmissions(keyHashLocal)){
+        dupMsg.textContent = '이미 참여한 정보입니다. (이름+생년월일+전화 뒷자리 중복)';
+        return;
+      }
+
+      // 원격 해시/중복 체크 - 실패해도 시작은 진행
+      let keyHashRemote = '';
+      if (window.__fb?.sha256Hex) {
+        try { keyHashRemote = await window.__fb.sha256Hex(composite); }
+        catch(e){ console.warn('sha256Hex failed, proceed:', e); }
+      }
+      if (keyHashRemote && window.__fb?.checkDuplicateRemote) {
+        try {
+          const dupRemote = await window.__fb.checkDuplicateRemote(keyHashRemote);
+          if (dupRemote) {
+            dupMsg.textContent = '이미 서버에 제출 기록이 있습니다. (중복 참여 불가)';
+            return;
+          }
+        } catch(e) {
+          console.warn('Remote duplicate precheck failed, proceed:', e);
+        }
+      }
+
+      // OK → 퀴즈 시작
+      quiz.name = name;
+      quiz.birth = birth;
+      quiz.phone4 = phone4;
+      quiz.keyHash = keyHashLocal;
+      quiz.keyHashRemote = keyHashRemote || '';
+      startQuiz();
+
+    } catch (err) {
+      console.error(err);
+      dupMsg.textContent = '시작 중 오류가 발생했습니다. (F12 콘솔 확인)';
+    }
+  });
+
+  $('#btnNext').onclick = nextQ;
+  $('#btnPrev').onclick = prevQ;
+  $('#btnHome').onclick = ()=>{ show(pages.home); };
+  btnAdmin.onclick = ()=> { goAdmin(); };
+
+  $('#btnPinGo').onclick = adminEnter;
+
+  $('#btnRangeSave').onclick = ()=>{
+    const cfg = load(K.cfg, defaultCfg);
+    const low = parseInt($('#inpLow').value||'0',10);
+    const high = parseInt($('#inpHigh').value||'0',10);
+    if(!(low>0 && high>=low)){ alert('하한/상한 값을 확인해주세요.'); return; }
+    cfg.low = low; cfg.high = high;
+    save(K.cfg, cfg);
+    showAdminMain();
+    alert('저장되었습니다.');
+  };
+
+  $('#btnCountSave').onclick = ()=>{
+    const cfg = load(K.cfg, defaultCfg);
+    let c = parseInt($('#inpCount').value||'5',10);
+    const bank = load(K.bank, defaultBank);
+    if(c<1) c=1;
+    if(c>bank.length) c=bank.length;
+    cfg.count = c;
+    save(K.cfg, cfg);
+    alert('출제 문항 수 저장 완료');
+  };
+
+  $('#btnPinSet').onclick = async ()=>{
+    const np = $('#inpNewPin').value.trim();
+    if(!np){ alert('새 PIN을 입력하세요.'); return; }
+    // 저장은 가능한 해시로, 실패 시 plain으로
+    try{
+      save(K.pin, await sha1(np));
+    }catch{
+      save(K.pin, `plain:${np}`);
+    }
+    $('#inpNewPin').value = '';
+    alert('PIN이 변경되었습니다.');
+  };
+
+  $('#btnCSV').onclick = ()=>{
+    const subs = load(K.subs, []);
+    const rows = [['when','name','birth_mask','phone_mask','key_hash','score','total']];
+    subs.forEach(s=>rows.push([s.when,s.name,s.birthMask||'',s.phoneMask||'',s.keyHash,s.score,s.total]));
+    const csv = rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+    download(`dgist_quiz_submissions_${new Date().toISOString().slice(0,10)}.csv`, csv);
+  };
+
+  $('#btnReset').onclick = ()=>{
+    if(confirm('정말 전체 데이터를 초기화할까요? 참가 기록과 중복키 목록이 모두 삭제됩니다.')){
+      save(K.subs, []);
+      save(K.keys, {});
+      updateProgress();
+      renderSubmits();
+      alert('초기화 완료');
+      showAdminMain();
+    }
+  };
+
+  $('#btnBankSave').onclick = ()=>{
+    try{
+      const parsed = JSON.parse($('#taBank').value);
+      if(!Array.isArray(parsed)) throw 0;
+      parsed.forEach(q=>{
+        if(!q.id||!q.question||!Array.isArray(q.choices)||typeof q.answer!=='number') throw 0;
+      });
+      save(K.bank, parsed);
+      const cfg = load(K.cfg, defaultCfg);
+      if(cfg.count>parsed.length){ cfg.count = parsed.length; save(K.cfg, cfg); }
+      alert('문제은행 저장 완료');
+    }catch(e){
+      alert('JSON 형식이 올바르지 않습니다. id, question, choices[], answer(번호)를 확인하세요.');
+    }
+  };
+
+  $('#btnBankExport').onclick = ()=>{
+    const bank = load(K.bank, defaultBank);
+    download('dgist_quiz_bank.json', JSON.stringify(bank,null,2));
+  };
+
+  $('#btnBankTemplate').onclick = ()=>{
+    $('#taBank').value = JSON.stringify(defaultBank, null, 2);
+  };
+
+  // Direct hash access to admin
+  if(location.hash==='#admin'){ goAdmin(); }
+
+  // Init home
+  updateProgress();
+
+})();
+</script>
+</body>
+</html>
