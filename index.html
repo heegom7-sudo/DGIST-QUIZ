@@ -214,9 +214,11 @@
     <h2 style="margin-top:20px">최근 제출</h2>
     <div id="submits" class="list"></div>
 
-   <div class="footer">© DGIST Quiz · Firebase Firestore 연동 시스템</div>
+    <div class="footer">© DGIST Quiz · Firebase Firestore 연동 시스템</div>
   </section>
 </div>
+
+<!-- Firebase 연결 블록 -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
   import { getFirestore, doc, getDoc, setDoc, serverTimestamp } 
@@ -226,7 +228,7 @@
     apiKey: "AIzaSyBlcq6BX9U8HRilZ0GQmYUoyGjfyWtRA5c",
     authDomain: "fix-2025--dgist-quiz.firebaseapp.com",
     projectId: "fix-2025--dgist-quiz",
-    storageBucket: "fix-2025--dgist-quiz.appspot.com",  // ⚠️ 수정된 부분
+    storageBucket: "fix-2025--dgist-quiz.appspot.com",
     messagingSenderId: "898254210099",
     appId: "1:898254210099:web:59abf5f674b44b1e878f46",
     measurementId: "G-LFRDQD9XEN"
@@ -258,8 +260,11 @@
     await setDoc(ref, { ...payload, createdAt: serverTimestamp() });
   }
 
+  // 전역 노출
   window.__fb = { db, sha256Hex, checkDuplicateRemote, saveSubmissionRemote };
 </script>
+
+<!-- 메인 앱 스크립트 -->
 <script>
 (function(){
   // --- Storage Keys
@@ -309,7 +314,7 @@
   if(!load(K.keys)) save(K.keys, {});    // {keyHash: timestamp}
 
   // --- State
-  let quiz = {name:'', birth:'', phone4:'', keyHash:'', picks:[], answers:{}, idx:0};
+  let quiz = {name:'', birth:'', phone4:'', keyHash:'', keyHashRemote:'', picks:[], answers:{}, idx:0};
 
   // --- Elements
   const pages = {
@@ -396,62 +401,71 @@
   function prevQ(){
     if(quiz.idx>0){ quiz.idx--; renderQ(); }
   }
+
+  // --- Submit (remote-then-local)
   async function submitQuiz(){
-  let score = 0;
-  quiz.picks.forEach(q=>{
-    if(quiz.answers[q.id]===q.answer) score++;
-  });
+    let score = 0;
+    quiz.picks.forEach(q=>{
+      if(quiz.answers[q.id]===q.answer) score++;
+    });
 
-  // 마스킹
-  const birthMask = quiz.birth?.replace(/^(\d{4})(\d{2})(\d{2})$/, (_,y,m,d)=>`${y}**${d}`);
-  const phoneMask = quiz.phone4?.replace(/^(\d{2})(\d{2})$/,'**$2');
+    // 마스킹
+    const birthMask = quiz.birth?.replace(/^(\d{4})(\d{2})(\d{2})$/, (_,y,m,d)=>`${y}**${d}`);
+    const phoneMask = quiz.phone4?.replace(/^(\d{2})(\d{2})$/,'**$2');
 
-  const payload = {
-  name: quiz.name,
-  birthMask,
-  phoneMask,
-  // ✅ 관리자/CSV 호환을 위해 유지
-  keyHash: quiz.keyHash,                // 기존 로컬 키(관리자·CSV가 이 필드를 씀)
-  keyHashLocal: quiz.keyHash,           // (보존)
-  keyHashRemote: quiz.keyHashRemote,    // Firestore 문서 ID로 사용
-  score,
-  total: quiz.picks.length,
-  when: nowStr(),
-  detail: quiz.picks.map(q=>({id:q.id,correct:q.answer,selected:quiz.answers[q.id]??null}))
-};
+    const payload = {
+      name: quiz.name,
+      birthMask,
+      phoneMask,
+      keyHash: quiz.keyHash,             // 관리자/CSV 호환용
+      keyHashLocal: quiz.keyHash,
+      keyHashRemote: quiz.keyHashRemote,
+      score,
+      total: quiz.picks.length,
+      when: nowStr(),
+      detail: quiz.picks.map(q=>({id:q.id,correct:q.answer,selected:quiz.answers[q.id]??null}))
+    };
 
-  // 1) Firestore에 먼저 저장 (중복이면 서버가 거절)
-  let remoteOK = false;
-  try{
-    await window.__fb.saveSubmissionRemote(quiz.keyHashRemote, payload);
-    remoteOK = true;
-  }catch(e){
-    if (e && e.code === 'duplicate') {
-      alert('이미 서버에 제출 기록이 있습니다. (중복 참여 불가)');
-      return;
+    // 1) Firestore 저장 (가능할 때만)
+    let remoteOK = false;
+    if (quiz.keyHashRemote && window.__fb?.saveSubmissionRemote) {
+      try{
+        await window.__fb.saveSubmissionRemote(quiz.keyHashRemote, payload);
+        remoteOK = true;
+      }catch(e){
+        if (e && e.code === 'duplicate') {
+          alert('이미 서버에 제출 기록이 있습니다. (중복 참여 불가)');
+          return;
+        } else {
+          console.warn('Remote save failed, keeping local only:', e);
+        }
+      }
     } else {
-      console.warn('Remote save failed:', e);
-      // 정책상 원격 실패 시에도 로컬로는 기록을 남기고 UI는 진행합니다.
-      // 필요하면 여기서 alert로 알릴 수도 있어요.
+      console.warn('Remote save skipped (no keyHashRemote or fb module).');
     }
+
+    // 2) 로컬 동기화
+    const subs = load(K.subs, []);
+    subs.push({ ...payload, at: Date.now() });
+    save(K.subs, subs);
+
+    // 3) 로컬 중복키 마킹
+    markKeyUsed(quiz.keyHash);
+
+    // 4) UI
+    $('#scoreLine').textContent = `${quiz.name} 님의 점수: ${score} / ${quiz.picks.length}` + (remoteOK ? '' : ' (오프라인 저장)');
+    updateProgress();
+    show(pages.done);
   }
 
-  // 2) 로컬에도 동기화 (관리자 화면/CSV 호환 유지)
-  const subs = load(K.subs, []);
-  subs.push({
-    ...payload,
-    at: Date.now()
-  });
-  save(K.subs, subs);
-
-  // 3) 로컬 중복키 마킹
-  markKeyUsed(quiz.keyHash);
-
-  // 4) UI 마무리
-  $('#scoreLine').textContent = `${quiz.name} 님의 점수: ${score} / ${quiz.picks.length}` + (remoteOK ? '' : ' (오프라인 저장)');
-  updateProgress();
-  show(pages.done);
-}
+  function shuffle(a){
+    const arr = a.slice();
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
 
   // --- Admin
   function goAdmin(){
@@ -525,157 +539,7 @@
 
   // --- Events
   btnStart.addEventListener('click', async ()=>{
-    const name = inpName.value.trim();
-    const birth = inpBirth.value.trim();
-    const phone4 = inpPhone4.value.trim();
-
-    // validations
-    if(!name){ dupMsg.textContent = '이름을 입력해주세요.'; return; }
-    if(!/^\d{8}$/.test(birth)){ dupMsg.textContent = '생년월일은 YYYYMMDD 8자리로 입력하세요.'; return; }
-
-    // 연도/월/일 범위 체크 (현재 연도 기반)
-    const nowY = new Date().getFullYear();
-    const y = parseInt(birth.slice(0,4),10);
-    const m = parseInt(birth.slice(4,6),10);
-    const d = parseInt(birth.slice(6,8),10);
-    if(y<1900 || y>nowY || m<1 || m>12 || d<1 || d>31){
-      dupMsg.textContent='생년월일 형식이 올바르지 않습니다.'; 
-      return; 
-    }
-
-    if(!/^\d{4}$/.test(phone4)){ 
-      dupMsg.textContent = '전화번호 뒷자리는 숫자 4자리로 입력하세요.'; 
-      return; 
-    }
-
-    // composite key => 로컬 해시(SHA-1) + 원격 해시(SHA-256)
-    const composite = `${name}|${birth}|${phone4}`;
-    const keyHashLocal = await sha1(composite);
-    let keyHashRemote;
     try {
-      keyHashRemote = await window.__fb.sha256Hex(composite);
-    } catch(e) {
-      dupMsg.textContent = '브라우저 암호화 모듈 오류가 발생했습니다. 다른 브라우저로 시도해주세요.';
-      return;
-    }
-
-    // (A) 로컬 사전 중복 차단
-    if(keyExistsLocalMap(keyHashLocal) || keyExistsInSubmissions(keyHashLocal)){
-      dupMsg.textContent = '이미 참여한 정보입니다. (이름+생년월일+전화 뒷자리 중복)';
-      return;
-    }
-
-    // (B) **원격 중복 체크** (권위 있는 판단)
-    try {
-      const dupRemote = await window.__fb.checkDuplicateRemote(keyHashRemote);
-      if (dupRemote) {
-        dupMsg.textContent = '이미 서버에 제출 기록이 있습니다. (중복 참여 불가)';
-        return;
-      }
-    } catch(e) {
-      console.warn('Remote duplicate check failed:', e);
-      // 네트워크 불안정 시 정책에 따라 안내 후 진행/중단 선택
-      // dupMsg.textContent = '네트워크 오류. 잠시 후 다시 시도해주세요.'; return;
-    }
-
-    // OK → 퀴즈 시작
-    dupMsg.textContent = '';
-    quiz.name = name;
-    quiz.birth = birth;
-    quiz.phone4 = phone4;
-    quiz.keyHash = keyHashLocal;       // 기존 로컬 흐름 호환
-    quiz.keyHashRemote = keyHashRemote; // 원격 키 저장
-    startQuiz();
-  });
-
-  $('#btnNext').onclick = nextQ;
-  $('#btnPrev').onclick = prevQ;
-  $('#btnHome').onclick = ()=>{ show(pages.home); };
-  btnAdmin.onclick = ()=> { goAdmin(); };
-
-  $('#btnPinGo').onclick = adminEnter;
-
-  $('#btnRangeSave').onclick = ()=>{
-    const cfg = load(K.cfg, defaultCfg);
-    const low = parseInt($('#inpLow').value||'0',10);
-    const high = parseInt($('#inpHigh').value||'0',10);
-    if(!(low>0 && high>=low)){ alert('하한/상한 값을 확인해주세요.'); return; }
-    cfg.low = low; cfg.high = high;
-    save(K.cfg, cfg);
-    showAdminMain();
-    alert('저장되었습니다.');
-  };
-
-  $('#btnCountSave').onclick = ()=>{
-    const cfg = load(K.cfg, defaultCfg);
-    let c = parseInt($('#inpCount').value||'5',10);
-    const bank = load(K.bank, defaultBank);
-    if(c<1) c=1;
-    if(c>bank.length) c=bank.length;
-    cfg.count = c;
-    save(K.cfg, cfg);
-    alert('출제 문항 수 저장 완료');
-  };
-
-  $('#btnPinSet').onclick = async ()=>{
-    const np = $('#inpNewPin').value.trim();
-    if(!np){ alert('새 PIN을 입력하세요.'); return; }
-    save(K.pin, await sha1(np));
-    $('#inpNewPin').value = '';
-    alert('PIN이 변경되었습니다.');
-  };
-
-  $('#btnCSV').onclick = ()=>{
-    const subs = load(K.subs, []);
-    const rows = [['when','name','birth_mask','phone_mask','key_hash','score','total']];
-    subs.forEach(s=>rows.push([s.when,s.name,s.birthMask||'',s.phoneMask||'',s.keyHash,s.score,s.total]));
-    const csv = rows.map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
-    download(`dgist_quiz_submissions_${new Date().toISOString().slice(0,10)}.csv`, csv);
-  };
-
-  $('#btnReset').onclick = ()=>{
-    if(confirm('정말 전체 데이터를 초기화할까요? 참가 기록과 중복키 목록이 모두 삭제됩니다.')){
-      save(K.subs, []);
-      save(K.keys, {});
-      updateProgress();
-      renderSubmits();
-      alert('초기화 완료');
-      showAdminMain();
-    }
-  };
-
-  $('#btnBankSave').onclick = ()=>{
-    try{
-      const parsed = JSON.parse($('#taBank').value);
-      if(!Array.isArray(parsed)) throw 0;
-      parsed.forEach(q=>{
-        if(!q.id||!q.question||!Array.isArray(q.choices)||typeof q.answer!=='number') throw 0;
-      });
-      save(K.bank, parsed);
-      const cfg = load(K.cfg, defaultCfg);
-      if(cfg.count>parsed.length){ cfg.count = parsed.length; save(K.cfg, cfg); }
-      alert('문제은행 저장 완료');
-    }catch(e){
-      alert('JSON 형식이 올바르지 않습니다. id, question, choices[], answer(번호)를 확인하세요.');
-    }
-  };
-
-  $('#btnBankExport').onclick = ()=>{
-    const bank = load(K.bank, defaultBank);
-    download('dgist_quiz_bank.json', JSON.stringify(bank,null,2));
-  };
-
-  $('#btnBankTemplate').onclick = ()=>{
-    $('#taBank').value = JSON.stringify(defaultBank, null, 2);
-  };
-
-  // Direct hash access to admin
-  if(location.hash==='#admin'){ goAdmin(); }
-
-  // Init home
-  updateProgress();
-
-})();
-</script>
-</body>
-</html>
+      dupMsg.textContent = '';
+      const name = inpName.value.trim();
+      const birth = inpBirth.value.t
