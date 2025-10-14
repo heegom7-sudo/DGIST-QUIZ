@@ -217,7 +217,49 @@
     <div class="footer">© DGIST Quiz · 로컬 저장 방식 · 브라우저에서 바로 실행</div>
   </section>
 </div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, serverTimestamp } 
+    from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
+  const firebaseConfig = {
+    apiKey: "AIzaSyBlcq6BX9U8HRilZ0GQmYUoyGjfyWtRA5c",
+    authDomain: "fix-2025--dgist-quiz.firebaseapp.com",
+    projectId: "fix-2025--dgist-quiz",
+    storageBucket: "fix-2025--dgist-quiz.appspot.com",  // ⚠️ 수정된 부분
+    messagingSenderId: "898254210099",
+    appId: "1:898254210099:web:59abf5f674b44b1e878f46",
+    measurementId: "G-LFRDQD9XEN"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  async function sha256Hex(str) {
+    const enc = new TextEncoder().encode(str);
+    const buf = await crypto.subtle.digest("SHA-256", enc);
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+  }
+
+  async function checkDuplicateRemote(hashId) {
+    const ref = doc(db, "participants", hashId);
+    const snap = await getDoc(ref);
+    return snap.exists();
+  }
+
+  async function saveSubmissionRemote(hashId, payload) {
+    const ref = doc(db, "participants", hashId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const err = new Error("duplicate");
+      err.code = "duplicate";
+      throw err;
+    }
+    await setDoc(ref, { ...payload, createdAt: serverTimestamp() });
+  }
+
+  window.__fb = { db, sha256Hex, checkDuplicateRemote, saveSubmissionRemote };
+</script>
 <script>
 (function(){
   // --- Storage Keys
