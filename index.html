@@ -334,11 +334,11 @@
   if(!load(K.pin)){
     (async()=>{
       try{
-        const h = await sha1('1234');
+        const h = await sha1('2460');
         save(K.pin, h);                 // 정상 환경: 해시 저장
       }catch(e){
         console.warn('SHA-1 init failed, storing plain PIN', e);
-        save(K.pin, 'plain:1234');      // 제한 환경: 접두어로 평문 저장
+        save(K.pin, 'plain:2460');      // 제한 환경: 접두어로 평문 저장
       }
     })();
   }
@@ -511,13 +511,13 @@
     const p = $('#inpPin').value.trim();
     let stored = load(K.pin);
 
-    // 저장 PIN이 없으면 1234으로 재설정(환경에 맞춰)
+    // 저장 PIN이 없으면 2460으로 재설정(환경에 맞춰)
     if (!stored) {
       try {
-        stored = await sha1('1234');
+        stored = await sha1('2460');
         save(K.pin, stored);
       } catch {
-        stored = 'plain:1234';
+        stored = 'plain:2460';
         save(K.pin, stored);
       }
     }
